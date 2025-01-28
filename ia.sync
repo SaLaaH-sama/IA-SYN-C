@@ -1,0 +1,410 @@
+/*
+L'algorithme implanté dans votre programme cherche à gérer l'affectation des tâches aux ouvriers dans un ordre de priorité spécifique : électricité, plomberie, puis isolation et peinture. Voici une description de son fonctionnement :
+
+Initialisation :
+
+Les ouvriers et les zones sont initialisés avec leurs états respectifs.
+Affectation des tâches :
+
+Pour chaque ouvrier disponible, l'algorithme suit les étapes suivantes :
+Priorité Électricité :
+
+L'algorithme parcourt toutes les zones.
+Si une zone est de type électricité (type 3) et que la tâche 0 n'est pas encore commencée, l'ouvrier est affecté à cette tâche.
+Si la tâche 0 est déjà en cours ou terminée, l'algorithme vérifie la tâche 1 et affecte l'ouvrier si elle n'est pas encore commencée.
+Priorité Plomberie :
+
+L'algorithme vérifie si au moins deux ouvriers sont disponibles.
+Si oui, il parcourt toutes les zones de type plomberie (type 2).
+Si une zone de plomberie a les deux tâches (0 et 1) non commencées et que les deux tâches ont une durée de 1, les deux ouvriers disponibles sont affectés simultanément à ces tâches.
+Si aucune zone de plomberie ne remplit cette condition, l'algorithme parcourt à nouveau les zones de plomberie et affecte les deux ouvriers disponibles aux tâches 0 et 1 d'une zone de plomberie non commencée.
+Vérification des tâches de plomberie :
+
+L'algorithme vérifie si toutes les tâches de plomberie sont terminées avant de passer aux autres types de tâches.
+Si toutes les tâches de plomberie ne sont pas terminées, l'algorithme passe à l'ouvrier suivant.
+Priorité Isolation :
+
+L'algorithme parcourt toutes les zones de type isolation (type 1).
+Pour les zones d'isolation, la tâche 0 et la tâche 1 d'une même zone ne peuvent pas se faire en même temps.
+Si une zone a la tâche 0 non commencée, l'ouvrier est affecté à cette tâche.
+Si la tâche 0 est terminée et que la tâche 1 n'est pas commencée, l'ouvrier est affecté à la tâche 1.
+Priorité Peinture :
+
+L'algorithme parcourt toutes les zones de type peinture (type 0).
+Pour les zones de peinture, la tâche 0 doit être faite avant la tâche 1, et la tâche 1 doit être faite directement après que la tâche 0 de la même zone est terminée.
+Si une zone a la tâche 0 non commencée, l'ouvrier est affecté à cette tâche.
+Si la tâche 0 est terminée et que la tâche 1 n'est pas commencée, l'ouvrier est affecté à la tâche 1.
+Passage :
+
+Si aucune tâche ne peut être affectée à l'ouvrier, l'algorithme imprime "PASS" et passe à l'ouvrier suivant.
+En résumé, l'algorithme cherche à affecter les tâches aux ouvriers en suivant un ordre de priorité strict : électricité, plomberie, puis isolation et peinture. Il s'assure que les tâches de plomberie nécessitant deux ouvriers sont commencées simultanément et que toutes les tâches de plomberie sont terminées avant de passer aux autres types de tâches. Pour les zones d'isolation, la tâche 0 et la tâche 1 d'une même zone ne peuvent pas se faire en même temps. Pour les zones de peinture, la tâche 0 doit être faite avant la tâche 1, et la tâche 1 doit être faite directement après que la tâche 0 de la même zone est terminée.
+*/
+
+// Declaration des variables globales
+GLOBALS
+    nb_zones = 16 // Nombre total de zones dans le système
+    ouvriers_dispo = 2 // Nombre d'ouvriers disponibles
+    id_gestionnaire = 0 // ID du gestionnaire courant
+    nb_gestionnaires = 0 // Nombre total de gestionnaires
+    etat_partie = 1 // etat de la partie (1 : en cours, 0 : terminee)
+    ouvriers = NULL // Tableau contenant les informations sur les ouvriers
+    zones = NULL // Tableau contenant les informations sur les zones
+    tour_actuel = 0 // Compteur pour suivre le tour actuel
+ENDGLOBALS
+
+// Definition de la structure "zone" pour representer une zone de travail
+STRUCT zone
+    type // Type de la zone (0 : peinture, 1 : isolation, 2 : plomberie, 3 : electricite)
+    tache0_duree // Duree de la tache 0 dans la zone
+    tache1_duree // Duree de la tache 1 dans la zone
+    etat_tache0 // etat de la tache 0 (0 : non commencee, 1 : en cours, 2 : terminee)
+    etat_tache1 // etat de la tache 1
+    ligne // Coordonnee ligne de la zone
+    colonne // Coordonnee colonne de la zone
+ENDSTRUCT
+
+// Definition de la structure "ouvrier" pour representer un ouvrier
+STRUCT ouvrier
+    disponible // Indique si l'ouvrier est disponible (1 : oui, 0 : non)
+    tache_en_cours_ligne // Coordonnee ligne de la tache en cours
+    tache_en_cours_colonne // Coordonnee colonne de la tache en cours
+    tache_en_cours_type // Type de la tache en cours (0 ou 1)
+ENDSTRUCT
+
+// Fonction pour initialiser les zones
+FUNCTION initialiser_zones()
+    zones = MALLOC(nb_zones) // Alloue la memoire pour le tableau de zones
+    FOR(i; 0; nb_zones)
+        zones[i] = MALLOC_STRUCT(zone) // Alloue la memoire pour chaque zone
+        IF(zones[i] == NULL)
+            PRINTERR("Allocation echouee pour la zone ", INT, i, "\n")
+        ENDIF
+    ENDFOR
+
+    FOR(i; 0; nb_zones)
+        zones[i]->ligne = READ() // Lecture de la coordonnee ligne
+        zones[i]->colonne = READ() // Lecture de la coordonnee colonne
+        zones[i]->type = READ() // Lecture du type de zone
+        zones[i]->tache0_duree = READ() // Lecture de la duree de la tache 0
+        zones[i]->tache1_duree = READ() // Lecture de la duree de la tache 1
+        zones[i]->etat_tache0 = 0 // Initialisation de l'etat de la tache 0
+        zones[i]->etat_tache1 = 0 // Initialisation de l'etat de la tache 1
+    ENDFOR
+    RETURN zones
+END
+
+// Fonction pour initialiser les ouvriers
+FUNCTION initialiser_ouvriers()
+    ouvriers = MALLOC(ouvriers_dispo) // Alloue la memoire pour le tableau d'ouvriers
+    FOR(i; 0; ouvriers_dispo)
+        ouvriers[i] = MALLOC_STRUCT(ouvrier) // Alloue la memoire pour chaque ouvrier
+        IF(ouvriers[i] == NULL)
+            PRINTERR("Allocation echouee pour l'ouvrier ", INT, i, "\n")
+        ENDIF
+        ouvriers[i]->disponible = 1 // Tous les ouvriers sont initialement disponibles
+        ouvriers[i]->tache_en_cours_ligne = -1 // Aucune tache assignee initialement
+        ouvriers[i]->tache_en_cours_colonne = -1
+        ouvriers[i]->tache_en_cours_type = -1
+    ENDFOR
+    RETURN ouvriers
+END
+
+// Fonction pour initialiser les informations du gestionnaire
+FUNCTION initialiser_gestionnaire()
+    nb_gestionnaires = READ() // Lecture du nombre total de gestionnaires
+    id_gestionnaire = READ() // Lecture de l'ID du gestionnaire actuel
+    PRINTERR("Gestionnaire initialise : ID=", INT, id_gestionnaire, ", Nb gestionnaires=", INT, nb_gestionnaires, "\n")
+END
+
+// Fonction pour lire et afficher l'etat des gestionnaires
+FUNCTION lire_etat()
+    FOR(i; 0; nb_gestionnaires)
+        local_id_gestionnaire = READ() // Lecture de l'ID du gestionnaire
+        etat = READ() // Lecture de l'etat du gestionnaire
+        zone_terminees = READ() // Lecture du nombre de zones terminees par ce gestionnaire
+        PRINTERR("etat du gestionnaire ", INT, local_id_gestionnaire, " : ", INT, etat, ", Zones terminees=", INT, zone_terminees, "\n")
+    ENDFOR
+END
+
+// Fonction pour lire les informations sur les zones et les ouvriers
+FUNCTION lire_infos()
+    nb_zones_commencees = READ() // Lecture du nombre de zones commencees
+    nb_zones_terminees = READ() // Lecture du nombre de zones terminees
+    PRINTERR("Nb zones commencees=", INT, nb_zones_commencees, ", Nb zones terminees=", INT, nb_zones_terminees, "\n")
+
+    FOR(i; 0; nb_zones_commencees)
+        n_gest = READ() // Lecture du gestionnaire assigne
+        n_ouvrier = READ() // Lecture de l'ouvrier assigne
+        ligne = READ() // Lecture de la coordonnee ligne
+        colonne = READ() // Lecture de la coordonnee colonne
+        tache = READ() // Lecture du type de tache
+        IF(n_gest == id_gestionnaire) // Si le gestionnaire est le gestionnaire actuel
+            ouvriers[n_ouvrier]->disponible = 0 // Marquer l'ouvrier comme occupe
+            ouvriers[n_ouvrier]->tache_en_cours_ligne = ligne
+            ouvriers[n_ouvrier]->tache_en_cours_colonne = colonne
+            ouvriers[n_ouvrier]->tache_en_cours_type = tache
+        ENDIF
+        PRINTERR("Tache commencee : Gestionnaire=", INT, n_gest, ", Ouvrier=", INT, n_ouvrier, ", Ligne=", INT, ligne, ", Colonne=", INT, colonne, ", Tache=", INT, tache, "\n")
+    ENDFOR
+
+    FOR(i; 0; nb_zones_terminees)
+        n_gest = READ() // Lecture du gestionnaire
+        n_ouvrier = READ() // Lecture de l'ouvrier
+        ligne = READ() // Lecture de la coordonnee ligne
+        colonne = READ() // Lecture de la coordonnee colonne
+        tache = READ() // Lecture du type de tache
+        IF(n_gest == id_gestionnaire) // Si le gestionnaire est le gestionnaire actuel
+            ouvriers[n_ouvrier]->disponible = 1 // Marquer l'ouvrier comme disponible
+            ouvriers[n_ouvrier]->tache_en_cours_ligne = -1 // Reinitialiser les coordonnees
+            ouvriers[n_ouvrier]->tache_en_cours_colonne = -1
+            ouvriers[n_ouvrier]->tache_en_cours_type = -1
+            index = ligne * 4 + colonne // Calculer l'index de la zone
+            IF(tache == 0)
+                zones[index]->etat_tache0 = 2 // Marquer la tache 0 comme terminee
+            ELSE
+                zones[index]->etat_tache1 = 2 // Marquer la tache 1 comme terminee
+            ENDIF
+        ENDIF
+        PRINTERR("Tache terminee : Gestionnaire=", INT, n_gest, ", Ouvrier=", INT, n_ouvrier, ", Ligne=", INT, ligne, ", Colonne=", INT, colonne, ", Tache=", INT, tache, "\n")
+    ENDFOR
+END
+// Fonction pour verifier le nombre d'ouvriers disponibles
+FUNCTION verifier_ouvriers_disponibles()
+    ouvriers_disponibles = 0
+    FOR(k; 0; ouvriers_dispo)
+        IF(ouvriers[k]->disponible == 1)
+            ouvriers_disponibles = ouvriers_disponibles + 1
+        ENDIF
+    ENDFOR
+    RETURN ouvriers_disponibles
+END
+// Fonction pour affecter une tache d'electricite a un ouvrier
+FUNCTION affecter_tache_electricite(j)
+    FOR(i; 0; nb_zones)
+        IF(zones[i]->type == 3)
+            IF(zones[i]->etat_tache0 == 0)
+                PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 0\n")
+                ouvriers[j]->disponible = 0
+                ouvriers[j]->tache_en_cours_ligne = zones[i]->ligne
+                ouvriers[j]->tache_en_cours_colonne = zones[i]->colonne
+                ouvriers[j]->tache_en_cours_type = 0
+                zones[i]->etat_tache0 = 1 // Marquer la tâche comme en cours
+                RETURN 0
+            ELIF(zones[i]->etat_tache1 == 0)
+                PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 1\n")
+                ouvriers[j]->disponible = 0
+                ouvriers[j]->tache_en_cours_ligne = zones[i]->ligne
+                ouvriers[j]->tache_en_cours_colonne = zones[i]->colonne
+                ouvriers[j]->tache_en_cours_type = 1
+                zones[i]->etat_tache1 = 1 // Marquer la tâche comme en cours
+                RETURN 1
+            ENDIF
+        ENDIF
+    ENDFOR
+    RETURN -1
+END
+// Fonction pour affecter une tache de plomberie a deux ouvriers
+FUNCTION affecter_tache_plomberie()
+    ouvriers_disponibles = verifier_ouvriers_disponibles()
+    IF(ouvriers_disponibles >= 2)
+        FOR(i; 0; nb_zones)
+            IF(zones[i]->type == 2)
+                IF(zones[i]->etat_tache0 == 0 AND zones[i]->etat_tache1 == 0)
+                    // Vérifier si les deux tâches ont une durée de 1
+                    IF(zones[i]->tache0_duree == 1 AND zones[i]->tache1_duree == 1)
+                        // Trouver les deux ouvriers disponibles
+                        ouvrier1 = -1
+                        ouvrier2 = -1
+                        FOR(k; 0; ouvriers_dispo)
+                            IF(ouvriers[k]->disponible == 1)
+                                IF(ouvrier1 == -1)
+                                    ouvrier1 = k
+                                ELSE
+                                    ouvrier2 = k
+                                    BREAK
+                                ENDIF
+                            ENDIF
+                        ENDFOR
+
+                        // Assigner les tâches aux deux ouvriers
+                        PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 0\n")
+                        ouvriers[ouvrier1]->disponible = 0
+                        ouvriers[ouvrier1]->tache_en_cours_ligne = zones[i]->ligne
+                        ouvriers[ouvrier1]->tache_en_cours_colonne = zones[i]->colonne
+                        ouvriers[ouvrier1]->tache_en_cours_type = 0
+                        zones[i]->etat_tache0 = 1 // Marquer la tâche comme en cours
+
+                        PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 1\n")
+                        ouvriers[ouvrier2]->disponible = 0
+                        ouvriers[ouvrier2]->tache_en_cours_ligne = zones[i]->ligne
+                        ouvriers[ouvrier2]->tache_en_cours_colonne = zones[i]->colonne
+                        ouvriers[ouvrier2]->tache_en_cours_type = 1
+                        zones[i]->etat_tache1 = 1 // Marquer la tâche comme en cours
+
+                        RETURN 0
+                    ENDIF
+                ENDIF
+            ENDIF
+        ENDFOR
+
+        // Prioriser les autres tâches de plomberie (type 2)
+        FOR(i; 0; nb_zones)
+            IF(zones[i]->type == 2)
+                IF(zones[i]->etat_tache0 == 0 AND zones[i]->etat_tache1 == 0)
+                    // Trouver les deux ouvriers disponibles
+                    ouvrier1 = -1
+                    ouvrier2 = -1
+                    FOR(k; 0; ouvriers_dispo)
+                        IF(ouvriers[k]->disponible == 1)
+                            IF(ouvrier1 == -1)
+                                ouvrier1 = k
+                            ELSE
+                                ouvrier2 = k
+                                BREAK
+                            ENDIF
+                        ENDIF
+                    ENDFOR
+
+                    // Assigner les tâches aux deux ouvriers
+                    PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 0\n")
+                    ouvriers[ouvrier1]->disponible = 0
+                    ouvriers[ouvrier1]->tache_en_cours_ligne = zones[i]->ligne
+                    ouvriers[ouvrier1]->tache_en_cours_colonne = zones[i]->colonne
+                    ouvriers[ouvrier1]->tache_en_cours_type = 0
+                    zones[i]->etat_tache0 = 1 // Marquer la tâche comme en cours
+
+                    PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 1\n")
+                    ouvriers[ouvrier2]->disponible = 0
+                    ouvriers[ouvrier2]->tache_en_cours_ligne = zones[i]->ligne
+                    ouvriers[ouvrier2]->tache_en_cours_colonne = zones[i]->colonne
+                    ouvriers[ouvrier2]->tache_en_cours_type = 1
+                    zones[i]->etat_tache1 = 1 // Marquer la tâche comme en cours
+
+                    RETURN 0
+                ENDIF
+            ENDIF
+        ENDFOR
+    ENDIF
+    RETURN -1
+END
+// Fonction pour vérifier si toutes les tâches de plomberie sont terminées
+FUNCTION verifier_toutes_taches_plomberie_terminees()
+    toutes_taches_plomberie_terminees = 1
+    FOR(i; 0; nb_zones)
+        IF(zones[i]->type == 2)
+            IF(zones[i]->etat_tache0 != 2 OR zones[i]->etat_tache1 != 2)
+                toutes_taches_plomberie_terminees = 0
+                BREAK
+            ENDIF
+        ENDIF
+    ENDFOR
+    RETURN toutes_taches_plomberie_terminees
+END
+// Fonction pour affecter une tache d'isolation a un ouvrier
+FUNCTION affecter_tache_isolation(j)
+    FOR(i; 0; nb_zones)
+        IF(zones[i]->type == 1)
+            IF(zones[i]->etat_tache0 == 0)
+                PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 0\n")
+                ouvriers[j]->disponible = 0
+                ouvriers[j]->tache_en_cours_ligne = zones[i]->ligne
+                ouvriers[j]->tache_en_cours_colonne = zones[i]->colonne
+                ouvriers[j]->tache_en_cours_type = 0
+                zones[i]->etat_tache0 = 1 // Marquer la tâche comme en cours
+                RETURN 0
+            // Ne pas commencer la tâche 1 si la tâche 0 n'est pas terminée
+            ELIF(zones[i]->etat_tache0 == 2 AND zones[i]->etat_tache1 == 0)
+                PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 1\n")
+                ouvriers[j]->disponible = 0
+                ouvriers[j]->tache_en_cours_ligne = zones[i]->ligne
+                ouvriers[j]->tache_en_cours_colonne = zones[i]->colonne
+                ouvriers[j]->tache_en_cours_type = 1
+                zones[i]->etat_tache1 = 1 // Marquer la tâche comme en cours
+                RETURN 1
+            ENDIF
+        ENDIF
+    ENDFOR
+    RETURN -1
+END
+// Fonction pour affecter une tache de peinture a un ouvrier
+FUNCTION affecter_tache_peinture(j)
+    FOR(i; 0; nb_zones)
+        IF(zones[i]->type == 0)
+            IF(zones[i]->etat_tache0 == 0)
+                PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 0\n")
+                ouvriers[j]->disponible = 0
+                ouvriers[j]->tache_en_cours_ligne = zones[i]->ligne
+                ouvriers[j]->tache_en_cours_colonne = zones[i]->colonne
+                ouvriers[j]->tache_en_cours_type = 0
+                zones[i]->etat_tache0 = 1 // Marquer la tâche comme en cours
+                RETURN 0
+            // Commencer la tâche 1 seulement si la tâche 0 est terminée
+            ELIF(zones[i]->etat_tache0 == 2 AND zones[i]->etat_tache1 == 0)
+                PRINT(INT, zones[i]->ligne, " ", INT, zones[i]->colonne, " 1\n")
+                ouvriers[j]->disponible = 0
+                ouvriers[j]->tache_en_cours_ligne = zones[i]->ligne
+                ouvriers[j]->tache_en_cours_colonne = zones[i]->colonne
+                ouvriers[j]->tache_en_cours_type = 1
+                zones[i]->etat_tache1 = 1 // Marquer la tâche comme en cours
+                RETURN 1
+            ENDIF
+        ENDIF
+    ENDFOR
+    RETURN -1
+END
+// Fonction pour affecter une tache a un ouvrier
+FUNCTION affecter_tache(j)
+    IF(ouvriers[j]->disponible == 0)
+        PRINT("PASS\n")
+        RETURN -1
+    ENDIF
+
+    // Prioriser les tâches d'électricité
+    result = affecter_tache_electricite(j)
+    IF(result != -1)
+        RETURN result
+    ENDIF
+
+    // Prioriser les tâches de plomberie
+    result = affecter_tache_plomberie()
+    IF(result != -1)
+        RETURN result
+    ENDIF
+
+    // Vérifier si toutes les tâches de plomberie sont terminées avant de passer aux autres types de tâches
+    toutes_taches_plomberie_terminees = verifier_toutes_taches_plomberie_terminees()
+    IF(toutes_taches_plomberie_terminees == 0)
+        PRINT("PASS\n")
+        RETURN -1
+    ENDIF
+
+    // Prioriser les tâches d'isolation
+    result = affecter_tache_isolation(j)
+    IF(result != -1)
+        RETURN result
+    ENDIF
+
+    // Prioriser les tâches de peinture
+    result = affecter_tache_peinture(j)
+    IF(result != -1)
+        RETURN result
+    ENDIF
+
+    PRINT("PASS\n")
+    RETURN -1
+END
+// Fonction principale
+FUNCTION main()
+    initialiser_gestionnaire() // Initialiser les informations du gestionnaire
+    zones = initialiser_zones() // Initialiser les zones
+    ouvriers = initialiser_ouvriers() // Initialiser les ouvriers
+    
+    WHILE(etat_partie) // Boucle principale pour suivre l'état de la partie
+        tour_actuel = tour_actuel + 1 // Incrémenter le compteur de tour
+        lire_etat() // Lire et afficher l'état des gestionnaires
+        FOR(i;0;ouvriers_dispo) // Affecter les tâches aux ouvriers disponibles
+            affecter_tache(i) // Affecter une tâche à l'ouvrier i
+        ENDFOR
+        lire_infos() // Lire les informations sur les zones et les ouvriers
+    ENDWHILE
+END
